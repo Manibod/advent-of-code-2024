@@ -1,0 +1,4 @@
+max_length = 6;
+num_sequences = 1;
+sequences = [|38, 41, 43, 44, 45, 47, 
+             |];
