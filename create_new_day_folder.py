@@ -45,8 +45,7 @@ def main():
       pass
 
    # Open Advent of code problem in the browser since the input relies on cookies
-   year = datetime.datetime.now().year
-   webbrowser.open(f"https://adventofcode.com/{year}/day/{args.day}")
+   webbrowser.open(f"https://adventofcode.com/2024/day/{args.day}")
 
 
 if __name__ == "__main__":
