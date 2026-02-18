@@ -78,8 +78,7 @@ def _solve_problem(data_file):
             continue
          
          pos_n_tuple = (tile_n.x, tile_n.y)
-         if (pos_n_tuple not in maze_pos_best_cost or
-             tile_n.g < maze_pos_best_cost[pos_n_tuple]):
+         if (pos_n_tuple not in maze_pos_best_cost):
 
             maze_pos_best_cost[pos_n_tuple] = tile_n.g
             heapq.heappush(heap, Tile(tile_n.x, tile_n.y, tile_n.dir, tile_n.g))

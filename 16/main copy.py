@@ -5,6 +5,7 @@ Script to solve an advent of code problem.
 # Standard library imports
 from collections import defaultdict
 
+import copy
 import heapq
 import os
 import logging
@@ -36,33 +37,21 @@ def _solve_problem(data_file):
    W = 3
 
    class PosPath:
-      def __init__(self, x, y, x_p, y_p, dir, g):
+      def __init__(self, x, y, dir, tiles, g):
          self.x   = x
          self.y   = y
-         self.x_p = x_p
-         self.y_p = y_p
          self.dir = dir
+         self.tiles = copy.deepcopy(tiles)
+         self.tiles.add((self.x, self.y))
          self.g   = g
          self.h   = getHeuristicCost(x, y)
+         
 
       def __lt__(self, other):
          return (self.g + self.h) < (other.g + other.h)
 
-   class PosBest:
-      def __init__(self, x_p, y_p, g, h):
-        self.x_p = x_p
-        self.y_p = y_p
-        self.g   = g
-        self.h   = h
-
    def getHeuristicCost(x, y):
       return abs(pos_goal[0] - x) + abs(pos_goal[1] - y) + 1000 if abs(pos_goal[0] - x) != 0 and abs(pos_goal[1] - y) != 0 else 0
-
-   def getNeigh(pos_path):
-      return [PosPath(pos_path.x-1, pos_path.y,   pos_path.x, pos_path.y, N, pos_path.g+1+(1000 if N != pos_path.dir else 0)),
-              PosPath(pos_path.x+1, pos_path.y,   pos_path.x, pos_path.y, S, pos_path.g+1+(1000 if S != pos_path.dir else 0)),
-              PosPath(pos_path.x,   pos_path.y-1, pos_path.x, pos_path.y, W, pos_path.g+1+(1000 if W != pos_path.dir else 0)),
-              PosPath(pos_path.x,   pos_path.y+1, pos_path.x, pos_path.y, E, pos_path.g+1+(1000 if E != pos_path.dir else 0))]
 
    maze = []
    with open(data_file, 'r') as f:
@@ -77,24 +66,30 @@ def _solve_problem(data_file):
    pos_goal = (1, len(maze[1])-2)
    pos_path_start = PosPath(len(maze) - 2,
                             1,
-                            len(maze) - 2,
-                            1,
                             E,
+                            set(),
                             0)
-   maze_pos_best = defaultdict(list)
-   maze_pos_best[(pos_path_start.x, pos_path_start.y)].append(PosBest(len(maze) - 2, 1, 0, getHeuristicCost(pos_path_start.x, pos_path_start.y)))
+   maze_pos_best_dir = {}
+   maze_pos_best_dir[(pos_path_start.x, pos_path_start.y, E)] = 0
+   
+   maze_pos_best_cost = {}
+   maze_pos_best_cost[(pos_path_start.x, pos_path_start.y)] = 0
+
+   maze_pos_best_parent = defaultdict(list)
+   maze_pos_best_parent[(pos_path_start.x, pos_path_start.y)].append(set([(pos_path_start.x, pos_path_start.y)]))
 
    heap =[]
    heapq.heappush(heap, pos_path_start)
 
    goal_best_cost = sys.maxsize
-   tiles_best_path = set()
 
    while heap:
       pos_path = heapq.heappop(heap)
-      pos_trace = (pos_path.x, pos_path.y)
-      pos_trace_2 = None
-      pos_path_neigh = getNeigh(pos_path)
+      pos_path_tuple = (pos_path.x, pos_path.y)
+      pos_path_neigh = [PosPath(pos_path.x-1, pos_path.y,   N, pos_path.tiles, pos_path.g+1+(1000 if N != pos_path.dir else 0)),
+                        PosPath(pos_path.x+1, pos_path.y,   S, pos_path.tiles, pos_path.g+1+(1000 if S != pos_path.dir else 0)),
+                        PosPath(pos_path.x,   pos_path.y-1, W, pos_path.tiles, pos_path.g+1+(1000 if W != pos_path.dir else 0)),
+                        PosPath(pos_path.x,   pos_path.y+1, E, pos_path.tiles, pos_path.g+1+(1000 if E != pos_path.dir else 0))]
       for pos_path_n in pos_path_neigh:
          if ((maze[pos_path_n.x][pos_path_n.y] == "#") or
              (pos_path.dir + pos_path_n.dir) % 2 == 0 and pos_path.dir != pos_path_n.dir or
@@ -102,34 +97,39 @@ def _solve_problem(data_file):
             continue
 
          pos_n_tuple = (pos_path_n.x, pos_path_n.y)
-         if (not maze_pos_best[pos_n_tuple] or
-             pos_path_n.g <= maze_pos_best[pos_n_tuple][0].g or
-             (pos_path_n.g == maze_pos_best[pos_n_tuple][0].g + 1000)):
-
-            maze_pos_best[pos_n_tuple].append(PosBest(pos_path_n.x_p,
-                                                      pos_path_n.y_p,
-                                                      pos_path_n.g,
-                                                      pos_path_n.h))
+         pos_n_dir_tuple = (pos_path_n.x, pos_path_n.y, pos_path_n.dir)
+         if pos_n_dir_tuple not in maze_pos_best_dir:
+            maze_pos_best_dir[pos_n_dir_tuple] = pos_path_n.g
             heapq.heappush(heap, PosPath(pos_path_n.x,
                                          pos_path_n.y,
-                                         pos_path_n.x_p,
-                                         pos_path_n.y_p,
                                          pos_path_n.dir,
+                                         pos_path.tiles, 
                                          pos_path_n.g))
 
+            if pos_n_tuple not in maze_pos_best_cost:
+               maze_pos_best_cost[pos_n_tuple] = pos_path_n.g
+               maze_pos_best_parent[pos_n_tuple].append(set(list(pos_path.tiles) + [(pos_path_n.x, pos_path_n.y)]))
+            elif maze_pos_best_cost[pos_n_tuple] >= pos_path_n.g:
+               maze_pos_best_parent[pos_n_tuple].append(set(list(pos_path.tiles) + [(pos_path_n.x, pos_path_n.y)]))
+
             if pos_n_tuple == pos_goal:
-               goal_best_cost = maze_pos_best[pos_n_tuple][0].g
+               goal_best_cost = maze_pos_best_cost[pos_n_tuple]
 
-   def get_paths(pos):
-      if pos in tiles_best_path:
-        return
-      tiles_best_path.add(pos)
-      if pos == pos_start:
-         return
-      for pos_best in maze_pos_best[pos]:
-         get_paths((pos_best.x_p, pos_best.y_p))
+         elif maze_pos_best_cost[pos_n_tuple] >= pos_path_n.g:
+               maze_pos_best_parent[pos_n_tuple].append(set(list(pos_path.tiles) + [(pos_path_n.x, pos_path_n.y)]))
 
-   get_paths(pos_goal)
+   tiles_best_path = set()
+   already_path_added = set()
+   path_to_add = [pos_goal]
+
+   while path_to_add:
+      tile = path_to_add.pop()
+      already_path_added.add(tile)
+      for path in maze_pos_best_parent[tile]:
+         tiles_best_path.update(path)
+         for t in path:
+            if t not in already_path_added:
+               path_to_add.append(t)
 
    print('-1-')
    print(len(tiles_best_path))
