@@ -80,6 +80,7 @@ def _solve_problem(data_file):
 
          if ((pos_n.x, pos_n.y) not in grid_pos_best_cost or
              pos_n.g < grid_pos_best_cost[(pos_n.x, pos_n.y)].g):
+
             grid_pos_best_cost[(pos_n.x, pos_n.y)] = BestCost(pos_n.g, pos.x, pos.y)
             heapq.heappush(heap, PosPath(pos_n.x, pos_n.y, pos_n.g))
 
